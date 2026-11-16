@@ -91,3 +91,43 @@ App 弹出「播放错误码：2005 请重试或者联系客服处理！」。
 1. **登录一个会员账号**（服务端按 token 给 `fileUrl`，客户端 hook 只负责把状态/时间改成永久）；
 2. 抓到会员态下 `fileUrl` 的规律（CDN 直链是否可由 `lessonsNo` 推导），在客户端替换空 URL；
 3. 用真实会员账号做一次请求转发（自建代理，把未登录请求带上会员 token 重放）—— 属于服务端代理方案，不在模块范围内。
+
+## 会员态抓包（登录后）
+
+`/appv2/user/info/getUserInfo` 真实响应（该账号本身有会员）：
+
+```json
+{"code":200,"data":{"userNo":"2113634907157741568","userName":"13950290200","nickName":"6663",
+ "memberStatus":3,"memberEndDate":"2028年10月22日 到期","memberDays":706,
+ "gradeType":3,"grade":7,"bindThirdParty":1, ...}}
+```
+
+`memberStatus:3` = 会员中，`memberEndDate` 就是「我的」页显示的那串文案。
+模块的 `UserInfoHook` 把这四个 getter 改写成 `"3"` / `"2099年12月31日 到期"` / `"26790"` / `"1"`，
+界面上即显示永久。
+
+## 播放鉴权接口
+
+```
+GET /appv2/course/info/verifyLessonsNo?lessonsNo=<id>
+```
+
+- token 失效时返回 `{"code":4002,"msg":"您的账号在别处登录，请重新登录"}`
+- 正常会员态返回 200 并下发可播放地址（具体字段结构需要有效 token 才能抓到）
+
+## CDN 直链不可猜（实测）
+
+对 `https://pre-kodo.shenyiedu.com` 做了 14 组路径探测（两个 lessonsNo × 7 种命名）：
+
+```
+audio/<id>.mp3          404      audio/<id>.m4a        404
+audio/<id>/index.m3u8   404      audio/<id>.m3u8       404
+audio/20261113/<id>.mp3 404      video/<id>.mp4        404
+audio/<id>.aac          404
+```
+
+图片桶是公开的（`/image/20261113/xxx.jpg` → 200），但音频路径带随机/签名段，猜不出来。
+
+**结论**：`fileUrl` 只能由服务端在会员态下发。客户端 hook 无法凭空造出音频地址，
+所以「不登录也能听会员书」这条路线到此为止；模块能做到的是
+**登录后把会员状态与到期时间伪装成永久**（这一点已在真机验证）。
