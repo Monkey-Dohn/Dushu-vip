@@ -1,119 +1,97 @@
 package com.shenyi.dywunlock.hooks;
 
 import com.shenyi.dywunlock.Const;
+import com.shenyi.dywunlock.HookUtil;
 import com.shenyi.dywunlock.XLog;
+
+import java.lang.reflect.Method;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
 
 /**
- * 定点 hook：静态分析确认过的门禁方法与字段（见 docs/01-ANALYSIS.md）。
+ * 定点 hook：静态分析确认过的门禁方法（见 docs/01-ANALYSIS.md）。
  *
- * 1. CourseDetailInfoBean.isVip()/isVipCourse()  -> false   （会员内容当免费内容放行）
- * 2. CourseDetailBean.isVipCourse()              -> false
- * 3. CourseLessonInfoBean 构造后 vipFlag/courseVipFlag -> 0
- * 4. ReadVipBean$MemberInfoBean.getStatus()      -> "3"     （会员中）
- * 5. ReadVipBean$MemberInfoBean.getDesc()        -> 永久会员
+ * 1. CourseDetailInfoBean.isVip()/isVipCourse()      -> false
+ * 2. CourseDetailBean.isVipCourse()                  -> false
+ * 3. CourseLessonInfoBean.isTryLesson()/showTryLearn -> false（试听分片门禁）
+ * 4. ReadVipBean$MemberInfoBean.getStatus()          -> "3"（会员中）
+ * 5. ReadVipBean$MemberInfoBean.getDesc()            -> 永久会员
+ * 另把 vipFlag / getVipFlag 归零，覆盖直接读字段的路径。
  */
 public final class BeanHook {
     private BeanHook() {}
 
     public static void install(ClassLoader cl) {
-        forceFalse(cl, "com.dyw.bean.CourseDetailInfoBean", "isVip");
-        forceFalse(cl, "com.dyw.bean.CourseDetailInfoBean", "isVipCourse");
-        forceFalse(cl, "com.dyw.bean.CourseDetailBean", "isVipCourse");
-        // 试听门禁：MediaPlayFragment 直接按这两个方法决定"只放试听片段"
-        forceFalse(cl, "com.dyw.bean.CourseLessonInfoBean", "isTryLesson");
-        forceFalse(cl, "com.dyw.bean.CourseLessonInfoBean", "showTryLearn");
-        clearFlagsOnCreate(cl, "com.dyw.bean.CourseLessonInfoBean", "vipFlag", "courseVipFlag");
-        clearFlagsOnCreate(cl, "com.dyw.bean.CourseDetailInfoBean", "vipFlag", "courseVipFlag");
-        clearFlagsOnCreate(cl, "com.dyw.bean.CourseDetailBean", "vipFlag", "courseVipFlag");
-        memberStatus(cl);
+        int n = 0;
+        n += forceFalse(cl, "com.dyw.bean.CourseDetailInfoBean", "isVip");
+        n += forceFalse(cl, "com.dyw.bean.CourseDetailInfoBean", "isVipCourse");
+        n += forceFalse(cl, "com.dyw.bean.CourseDetailBean", "isVipCourse");
+        n += forceFalse(cl, "com.dyw.bean.CourseLessonInfoBean", "isTryLesson");
+        n += forceFalse(cl, "com.dyw.bean.CourseLessonInfoBean", "showTryLearn");
+        n += zeroIntGetter(cl, "com.dyw.bean.CourseDetailInfoBean", "getVipFlag");
+        n += zeroIntGetter(cl, "com.dyw.bean.CourseDetailInfoBean", "getCourseVipFlag");
+        n += zeroIntGetter(cl, "com.dyw.bean.CourseDetailBean", "getVipFlag");
+        n += zeroIntGetter(cl, "com.dyw.bean.CourseDetailBean", "getCourseVipFlag");
+        n += memberStatus(cl);
+        XLog.i("BeanHook 命中 " + n + " 项");
     }
 
-    private static void forceFalse(ClassLoader cl, final String cls, final String method) {
+    private static int forceFalse(ClassLoader cl, final String cls, final String method) {
         Class<?> c = XposedHelpers.findClassIfExists(cls, cl);
-        if (c == null) { XLog.i("跳过(不存在) " + cls); return; }
-        try {
-            XposedHelpers.findAndHookMethod(c, method, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam p) {
-                    p.setResult(Boolean.FALSE);
-                }
-            });
-            XLog.i(cls + "." + method + "() -> false");
-        } catch (Throwable t) {
-            XLog.e("hook " + cls + "." + method + " 失败", t);
-        }
+        if (c == null) { XLog.i("跳过(类不存在) " + cls); return 0; }
+        Method m = HookUtil.get(c, method);
+        if (m == null) { XLog.i("跳过(方法不存在) " + cls + "." + method); return 0; }
+        boolean ok = HookUtil.hook(m, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam p) {
+                p.setResult(Boolean.FALSE);
+            }
+        });
+        if (ok) XLog.i(cls + "." + method + "() -> false");
+        return ok ? 1 : 0;
     }
 
-    private static void clearFlagsOnCreate(ClassLoader cl, final String cls, final String... fields) {
+    private static int zeroIntGetter(ClassLoader cl, String cls, String method) {
         Class<?> c = XposedHelpers.findClassIfExists(cls, cl);
-        if (c == null) return;
-        try {
-            XposedHelpers.findAndHookMethod(c, "getVipFlag", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam p) {
-                    if (p.getResult() instanceof Integer) p.setResult(Integer.valueOf(Const.FLAG_FREE));
-                }
-            });
-        } catch (Throwable ignored) {
-        }
-        try {
-            XposedHelpers.findAndHookMethod(c, "getCourseVipFlag", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam p) {
-                    if (p.getResult() instanceof Integer) p.setResult(Integer.valueOf(Const.FLAG_FREE));
-                }
-            });
-        } catch (Throwable ignored) {
-        }
-        for (final String f : fields) {
-            try {
-                XposedHelpers.findAndHookMethod(c, "setVipFlag", int.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam p) {
-                        if ("vipFlag".equals(f)) p.args[0] = Integer.valueOf(Const.FLAG_FREE);
-                    }
-                });
-            } catch (Throwable ignored) {
+        if (c == null) return 0;
+        Method m = HookUtil.get(c, method);
+        if (m == null) return 0;
+        boolean ok = HookUtil.hook(m, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam p) {
+                if (p.getResult() instanceof Integer) p.setResult(Integer.valueOf(Const.FLAG_FREE));
             }
-            try {
-                XposedHelpers.findAndHookMethod(c, "setCourseVipFlag", int.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam p) {
-                        if ("courseVipFlag".equals(f)) p.args[0] = Integer.valueOf(Const.FLAG_FREE);
-                    }
-                });
-            } catch (Throwable ignored) {
-            }
-        }
+        });
+        if (ok) XLog.i(cls + "." + method + "() -> 0");
+        return ok ? 1 : 0;
     }
 
-    private static void memberStatus(ClassLoader cl) {
+    private static int memberStatus(ClassLoader cl) {
         Class<?> c = XposedHelpers.findClassIfExists("com.dyw.bean.ReadVipBean$MemberInfoBean", cl);
-        if (c == null) { XLog.i("跳过 ReadVipBean$MemberInfoBean"); return; }
-        try {
-            XposedHelpers.findAndHookMethod(c, "getStatus", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam p) {
-                    p.setResult(Const.VIP_STATUS);
-                }
-            });
+        if (c == null) { XLog.i("跳过 ReadVipBean$MemberInfoBean"); return 0; }
+        int n = 0;
+        Method ms = HookUtil.get(c, "getStatus");
+        if (ms != null && HookUtil.hook(ms, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam p) {
+                p.setResult(Const.VIP_STATUS);
+            }
+        })) {
             XLog.i("MemberInfoBean.getStatus() -> " + Const.VIP_STATUS);
-        } catch (Throwable t) {
-            XLog.e("hook getStatus 失败", t);
+            n++;
         }
-        try {
-            XposedHelpers.findAndHookMethod(c, "getDesc", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam p) {
-                    Object r = p.getResult();
-                    if (r == null || ((String) r).length() == 0) p.setResult("永久会员 · 无限期");
-                }
-            });
-        } catch (Throwable t) {
-            XLog.e("hook getDesc 失败", t);
+        Method md = HookUtil.get(c, "getDesc");
+        if (md != null && HookUtil.hook(md, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam p) {
+                if (p.hasThrowable()) return;
+                Object r = p.getResult();
+                if (r == null || ((String) r).length() == 0) p.setResult("永久会员 · 无限期");
+            }
+        })) {
+            n++;
         }
+        return n;
     }
 }

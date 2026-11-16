@@ -43,6 +43,7 @@ expire_cnt / expired / expires
 | `MediaPlayFragment.R2()` | 按 `isVipCourse()` 决定请求 courseType=2(会员)/1(普通) | 被上面钉成 1 → 普通课程身份请求 |
 | `com.dyw.bean.ReadVipBean$MemberInfoBean.getStatus()` | `"3"` = 会员中（`ReadVipFragment.C2` 判定） | 返回 `"3"` |
 | `getDesc()` | 会员描述 | 空则给 `永久会员 · 无限期` |
+| `com.dy.common.model.user.UserInfo$UserTokenResult.getMemberStatus()/getMemberEndDate()/getMemberDays()/getIsMember()` | 「我的」页会员卡真实数据源（`MineFragment.tvVipTime`） | 分别返回 `"3"` / `2099年12月31日 到期` / `26790` / `"1"` |
 | `/appv2/member/detail` | 会员详情 JSON 字符串 | 在 `org.json.JSONObject` 取值点改写 |
 | SharedPreferences / MMKV | 本地会员缓存 | 读写双向改写 |
 | H5 `/h5/dyw/#/memberRecharge` | 购买页 | 见 `docs/04-NETWORK-H5.md`（WebView 注入方案） |
@@ -80,6 +81,11 @@ bash scripts/build.sh            # -> dist/DywVipUnlock-v1.0.0.apk
 
 构建链是手搓的，不依赖 Gradle：`aapt2 compile → aapt2 link → javac(source 8) → d8 → zip → zipalign → apksigner`。
 细节与实测输出见 [docs/02-BUILD.md](docs/02-BUILD.md)。
+
+> **真机已验证**（OPPO R9s / LineageOS 21 / Magisk 30 / Vector 2.2）：
+> 同一账号在「我的」页的到期时间从 `2028年10月22日 到期` 变为 `2099年12月31日 到期`，
+> 四层 hook 全部命中（Pref 10/10、JSON 8/8、Bean 9 项、UserTokenResult 4/4）。
+> 过程与排错见 [docs/06-DEVICE-TEST.md](docs/06-DEVICE-TEST.md)。
 
 ## 五、安装与验证
 
