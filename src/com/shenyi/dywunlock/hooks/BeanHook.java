@@ -22,6 +22,9 @@ public final class BeanHook {
         forceFalse(cl, "com.dyw.bean.CourseDetailInfoBean", "isVip");
         forceFalse(cl, "com.dyw.bean.CourseDetailInfoBean", "isVipCourse");
         forceFalse(cl, "com.dyw.bean.CourseDetailBean", "isVipCourse");
+        // 试听门禁：MediaPlayFragment 直接按这两个方法决定"只放试听片段"
+        forceFalse(cl, "com.dyw.bean.CourseLessonInfoBean", "isTryLesson");
+        forceFalse(cl, "com.dyw.bean.CourseLessonInfoBean", "showTryLearn");
         clearFlagsOnCreate(cl, "com.dyw.bean.CourseLessonInfoBean", "vipFlag", "courseVipFlag");
         clearFlagsOnCreate(cl, "com.dyw.bean.CourseDetailInfoBean", "vipFlag", "courseVipFlag");
         clearFlagsOnCreate(cl, "com.dyw.bean.CourseDetailBean", "vipFlag", "courseVipFlag");

@@ -39,6 +39,7 @@ expire_cnt / expired / expires
 | `com.dyw.bean.CourseDetailInfoBean.isVip()` | `vipFlag == 1` → 会员书 | 返回 `false` → 会员书按免费放行 |
 | `com.dyw.bean.CourseDetailInfoBean.isVipCourse()` | `courseVipFlag == 1` → 会员课 | 返回 `false` |
 | `com.dyw.bean.CourseDetailBean.isVipCourse()` | 同上 | 返回 `false` |
+| `com.dyw.bean.CourseLessonInfoBean.isTryLesson()` / `showTryLearn()` | 试听分片门禁（`MediaPlayFragment` 多处调用） | 返回 `false` → 直接放全片 |
 | `MediaPlayFragment.R2()` | 按 `isVipCourse()` 决定请求 courseType=2(会员)/1(普通) | 被上面钉成 1 → 普通课程身份请求 |
 | `com.dyw.bean.ReadVipBean$MemberInfoBean.getStatus()` | `"3"` = 会员中（`ReadVipFragment.C2` 判定） | 返回 `"3"` |
 | `getDesc()` | 会员描述 | 空则给 `永久会员 · 无限期` |
@@ -126,5 +127,6 @@ docs/01-ANALYSIS.md            目标与 Deer God 逆向记录
 docs/02-BUILD.md               构建链与实测输出
 docs/03-INSTALL.md             安装/验证/回滚
 docs/04-NETWORK-H5.md          H5 与 OkHttp 补层方案
+docs/05-VERIFY.md              符号自检与产物校验
 dist/DywVipUnlock-v1.0.0.apk   成品
 ```
