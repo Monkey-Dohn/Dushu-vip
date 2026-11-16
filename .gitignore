@@ -1,8 +1,8 @@
 build/
-*.apk
-*.dex
 *.class
+*.dex
 tools/jdk*
 tools/bt34/
 tools/plat/
 tools/*.zip
+!dist/*.apk

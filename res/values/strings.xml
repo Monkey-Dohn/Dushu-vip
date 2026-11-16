@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">申怡读书·永久会员</string>
+    <string name="xposed_description">解锁申怡读书(com.dyw)读书会员，并把会员到期时间顶到 2099-12-31（无限久）。仅作用于 com.dyw。</string>
+</resources>

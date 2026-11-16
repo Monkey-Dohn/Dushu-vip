@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LSPosed 作用域：只勾申怡读书 -->
+    <string-array name="xposed_scope">
+        <item>com.dyw</item>
+    </string-array>
+</resources>
