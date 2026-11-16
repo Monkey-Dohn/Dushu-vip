@@ -5,6 +5,7 @@ import com.shenyi.dywunlock.hooks.GenericHook;
 import com.shenyi.dywunlock.hooks.JsonHook;
 import com.shenyi.dywunlock.hooks.MmkvHook;
 import com.shenyi.dywunlock.hooks.PrefHook;
+import com.shenyi.dywunlock.hooks.UiHook;
 import com.shenyi.dywunlock.hooks.UserInfoHook;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -51,6 +52,11 @@ public class HookEntry implements IXposedHookLoadPackage {
             XLog.i("step: UserInfoHook ...");
             try { UserInfoHook.install(cl); } catch (Throwable t) { XLog.e("UserInfoHook 安装失败", t); }
             XLog.i("step: UserInfoHook done");
+        }
+        if (Const.ENABLE_UI) {
+            XLog.i("step: UiHook ...");
+            try { UiHook.install(cl); } catch (Throwable t) { XLog.e("UiHook 安装失败", t); }
+            XLog.i("step: UiHook done");
         }
         if (Const.ENABLE_GENERIC) {
             XLog.i("step: GenericHook ...");

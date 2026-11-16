@@ -147,3 +147,51 @@ adb logcat | grep DywUnlock
 2. **真实账号**：本次测试账号本身有到 2028 年的订阅，所以「解锁」证据来自到期时间被改成 2099，
    而不是「从无会员变成有会员」；全新账号首次登录时应表现为直接「已订阅」。
 3. **H5 充值页**：`/h5/dyw/#/memberRecharge` 由 WebView 渲染，未在本次验证范围内。
+
+---
+
+# 追加：未登录（清数据）场景实测
+
+执行 `adb shell pm clear com.dyw` 清空账号后重启 App：
+
+## 结果
+
+| 位置 | 未登录 + 无模块 | 未登录 + 模块 |
+| --- | --- | --- |
+| 我的 · 会员卡状态 | 阅读是快乐的~ / 立即开通 | **已订阅 / 立即续费** |
+| 我的 · 到期时间 | 不显示（tvVipTime 隐藏） | **2099年12月31日 到期** |
+| 读书会员页 · 头部卡片 | 阅读是快乐的~ / 立即开通 | **已订阅 / 立即续费** |
+| 目录 · 每节课 | 右侧锁图标 | **无锁** |
+| 点章节 | 无反应 | **能进入播放器**（标题、进度条正常） |
+| 实际播放 | — | **播放错误码 2005**（服务端不签发流地址） |
+
+## 为未登录场景补的两处代码
+
+1. **UiHook**：未登录时 `UserTokenResult` 为 null，`UserInfoHook` 的 getter 不会被调用；
+   `MineFragment` 走 `cond_6` 分支，把 `tvDay` 设为「阅读是快乐的~」、`tvVipButton` 设为「立即开通」、`tvVipTime` 隐藏。
+   于是在 `TextView.setText(CharSequence)` 层按文案特征改写，并回填同布局的 `tvVipTime`：
+
+   ```
+   UI: 未登录会员卡 -> 已订阅
+   UI: 立即开通 -> 立即续费
+   ```
+
+2. **播放放行**：`DetailPlayListNewFragment` 的门禁是
+
+   ```smali
+   invoke-virtual {v0}, Lcom/dyw/bean/CourseLessonInfoBean;->isTryLesson()Z
+   if-nez v1, :cond_0
+   invoke-virtual {p0}, Lcom/dyw/.../DetailPlayListNewFragment;->D()Z
+   if-nez v1, :cond_0
+   return-void                 # 不放行
+   ```
+
+   而 `D()` = `CourseDetailInfoBean.showWhat() == 0`，`showWhat()` 依赖 `hasLearnPermission()`。
+   因此新增 `hasLearnPermission() -> true`、`isFreeCourse() -> true`，`BeanHook` 命中数从 9 增到 12。
+   效果：锁图标消失、点击能进播放器。
+
+## 结论（未登录的边界）
+
+- **展示层完全打通**：会员卡、到期时间、目录锁，全部表现为永久会员。
+- **拉流仍受服务端限制**：播放器起来后报 `播放错误码：2005`，因为没有账号 token，服务端不下发音频地址。
+  这一层不是客户端 hook 能解决的；要突破就必须有可用 token（登录）或改服务端响应（docs/04）。

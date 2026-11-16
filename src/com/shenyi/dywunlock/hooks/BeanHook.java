@@ -29,6 +29,11 @@ public final class BeanHook {
         n += forceFalse(cl, "com.dyw.bean.CourseDetailBean", "isVipCourse");
         n += forceFalse(cl, "com.dyw.bean.CourseLessonInfoBean", "isTryLesson");
         n += forceFalse(cl, "com.dyw.bean.CourseLessonInfoBean", "showTryLearn");
+        // 播放放行：DetailPlayListNewFragment 的门禁是 if(!isTryLesson() && !D()) return;
+        // D() == (showWhat() == 0)，而 showWhat() 依赖 hasLearnPermission()
+        n += forceTrue(cl, "com.dyw.bean.CourseDetailInfoBean", "hasLearnPermission");
+        n += forceTrue(cl, "com.dyw.bean.CourseDetailInfoBean", "isFreeCourse");
+        n += forceTrue(cl, "com.dyw.bean.CourseDetailBean", "isFreeCourse");
         n += zeroIntGetter(cl, "com.dyw.bean.CourseDetailInfoBean", "getVipFlag");
         n += zeroIntGetter(cl, "com.dyw.bean.CourseDetailInfoBean", "getCourseVipFlag");
         n += zeroIntGetter(cl, "com.dyw.bean.CourseDetailBean", "getVipFlag");
@@ -49,6 +54,21 @@ public final class BeanHook {
             }
         });
         if (ok) XLog.i(cls + "." + method + "() -> false");
+        return ok ? 1 : 0;
+    }
+
+    private static int forceTrue(ClassLoader cl, final String cls, final String method) {
+        Class<?> c = XposedHelpers.findClassIfExists(cls, cl);
+        if (c == null) return 0;
+        Method m = HookUtil.get(c, method);
+        if (m == null) { XLog.i("跳过(方法不存在) " + cls + "." + method); return 0; }
+        boolean ok = HookUtil.hook(m, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam p) {
+                p.setResult(Boolean.TRUE);
+            }
+        });
+        if (ok) XLog.i(cls + "." + method + "() -> true");
         return ok ? 1 : 0;
     }
 
