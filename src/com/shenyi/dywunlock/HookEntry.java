@@ -4,6 +4,7 @@ import com.shenyi.dywunlock.hooks.BeanHook;
 import com.shenyi.dywunlock.hooks.GenericHook;
 import com.shenyi.dywunlock.hooks.JsonHook;
 import com.shenyi.dywunlock.hooks.MmkvHook;
+import com.shenyi.dywunlock.hooks.NetHook;
 import com.shenyi.dywunlock.hooks.PrefHook;
 import com.shenyi.dywunlock.hooks.UiHook;
 import com.shenyi.dywunlock.hooks.UserInfoHook;
@@ -57,6 +58,11 @@ public class HookEntry implements IXposedHookLoadPackage {
             XLog.i("step: UiHook ...");
             try { UiHook.install(cl); } catch (Throwable t) { XLog.e("UiHook 安装失败", t); }
             XLog.i("step: UiHook done");
+        }
+        if (Const.ENABLE_NET) {
+            XLog.i("step: NetHook ...");
+            try { NetHook.install(cl); } catch (Throwable t) { XLog.e("NetHook 安装失败", t); }
+            XLog.i("step: NetHook done");
         }
         if (Const.ENABLE_GENERIC) {
             XLog.i("step: GenericHook ...");

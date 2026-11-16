@@ -38,7 +38,9 @@ public final class Const {
     public static final boolean ENABLE_BEAN = true;
     public static final boolean ENABLE_USERINFO = true;
     public static final boolean ENABLE_UI = true;
+    public static final boolean ENABLE_NET = true;
 
     /** 调试：把命中会员/时间关键词的 JSON 键值对打出来（真机定位字段用，发布前关掉） */
     public static final boolean DEBUG_JSON = false;
+    public static final boolean DEBUG_NET = false;
 }

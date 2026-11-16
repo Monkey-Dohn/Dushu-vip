@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 无 Gradle 构建 LSPosed 模块 APK：aapt2 + javac + d8 + zipalign + apksigner
-# 用法: bash build/build.sh
+# 用法: bash scripts/build.sh
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -44,14 +44,17 @@ echo "== [2/7] aapt2 link 生成资源 APK"
 
 echo "== [3/7] javac 编译（source/target 8，bootclasspath=android.jar）"
 SRC=$(find "$PROJ/src" "$OUT/gen" -name '*.java')
-"$JAVAC" -encoding UTF-8 -source 8 -target 8 -nowarn \
-  -bootclasspath "$ANDROID_JAR" \
-  -cp "$XPOSED_JAR" \
-  -d "$OUT/classes" $SRC 2>&1 | grep -v "^警告\|^warning\|bootstrap class path" || true
+if ! "$JAVAC" -encoding UTF-8 -source 8 -target 8 -nowarn \
+      -bootclasspath "$ANDROID_JAR" \
+      -cp "$XPOSED_JAR" \
+      -d "$OUT/classes" $SRC; then
+  echo "!! javac 失败"; exit 1
+fi
 
 echo "== [4/7] d8 生成 classes.dex"
 CLASSES=$(find "$OUT/classes" -name '*.class')
 "$D8" --release --min-api 21 --lib "$ANDROID_JAR" --lib "$XPOSED_JAR" --output "$OUT/dex" $CLASSES
+[ -f "$OUT/dex/classes.dex" ] || { echo "!! d8 未产出 classes.dex"; exit 1; }
 
 echo "== [5/7] 打包 dex + assets 进 APK"
 cp "$OUT/base.apk" "$OUT/app.apk"
@@ -61,7 +64,7 @@ apk, dex, xinit = sys.argv[1], sys.argv[2], sys.argv[3]
 with zipfile.ZipFile(apk, 'a', zipfile.ZIP_DEFLATED) as z:
     z.write(dex, 'classes.dex')
     z.write(xinit, 'assets/xposed_init')
-print('   已写入 classes.dex + assets/xposed_init')
+print('   wrote classes.dex + assets/xposed_init')
 PY
 
 echo "== [6/7] zipalign"
@@ -75,11 +78,10 @@ if [ ! -f "$KS" ]; then
     -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
 fi
 FINAL="$DIST/DywVipUnlock-v1.0.0.apk"
-cp "$OUT/app-aligned.apk" "$FINAL"
 "$APKSIGNER" sign --ks "$KS" --ks-pass pass:android --key-pass pass:android \
   --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
   --out "$FINAL" "$OUT/app-aligned.apk"
-"$APKSIGNER" verify --print-certs "$FINAL" | head -8
+"$APKSIGNER" verify --print-certs "$FINAL" | head -3
 
 echo
 echo "产物: $FINAL"
