@@ -195,3 +195,49 @@ adb logcat | grep DywUnlock
 - **展示层完全打通**：会员卡、到期时间、目录锁，全部表现为永久会员。
 - **拉流仍受服务端限制**：播放器起来后报 `播放错误码：2005`，因为没有账号 token，服务端不下发音频地址。
   这一层不是客户端 hook 能解决的；要突破就必须有可用 token（登录）或改服务端响应（docs/04）。
+
+---
+
+# 追加：非会员账号 A/B 对照（决定性证据）
+
+账号：**学员0200 / 138\*\*\*\*0200**（无会员），同一台 R9s、同一版本 App 3.0.9。
+
+| 模块状态 | 「我的」会员卡 | 到期时间 |
+| --- | --- | --- |
+| **关闭**（`lspd cli modules disable com.shenyi.dywunlock`） | 未订阅 / 立即开通 | 不显示 |
+| **开启**（`lspd cli modules enable …`） | **已订阅 / 立即续费** | **2099年12月31日 到期** |
+
+切换方式（Vector CLI，无需重启）：
+
+```bash
+su -c "/data/adb/lspd/cli modules disable com.shenyi.dywunlock"
+adb shell am force-stop com.dyw && adb shell am start -n com.dyw/.activity.MainActivity
+# 截图 -> 未订阅
+su -c "/data/adb/lspd/cli modules enable com.shenyi.dywunlock"
+adb shell am force-stop com.dyw && adb shell am start -n com.dyw/.activity.MainActivity
+# 截图 -> 已订阅 2099-12-31
+```
+
+## 播放：非会员账号 + 模块，仍然播不了
+
+`NetHook` 已把课程响应改写成 `"vipFlag":1,"courseVipFlag":0`（会员课当免费课），
+目录锁消失、播放器能进，但日志显示：
+
+```
+I System.out: Exo2MediaPlayer onPlaybackStateChanged state : 2
+E ExoPlayerImplInternal: Playback error
+E EventLogger: com.google.android.exoplayer2.ExoPlaybackException: Source error
+```
+
+原因还是 `fileUrl":""`：**服务端对非会员不下发音频地址**，客户端拿空 URL 去 open，必然 Source error。
+
+## 四象限结论
+
+| 场景 | 会员展示 | 实际播放 |
+| --- | --- | --- |
+| 未登录 + 模块 | 已订阅 / 2099 | 播放错误码 2005（无 fileUrl） |
+| 非会员登录 + 无模块 | 未订阅 | — |
+| **非会员登录 + 模块** | **已订阅 / 2099** | Source error（fileUrl 仍为空） |
+| 会员登录 + 模块 | 已订阅 / 2099 | 可播放（服务端才给 fileUrl） |
+
+即：**会员身份展示层 100% 解锁，音频流仍然由服务端按会员身份签发**。

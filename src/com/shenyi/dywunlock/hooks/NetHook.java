@@ -30,7 +30,35 @@ public final class NetHook {
     private static final String CLS_BODY = "okhttp3.ResponseBody";
     private static final String CLS_MEDIA = "okhttp3.MediaType";
 
+
+    /** 调试用：抓 ServerApi.a(timestamp, body) 的实参，拿到签名原始串与时间戳格式 */
+    private static void hookSigner(final ClassLoader cl) {
+        try {
+            Class<?> api = XposedHelpers.findClassIfExists("com.dy.common.interfase.ServerApi", cl);
+            if (api == null) return;
+            java.lang.reflect.Method m = null;
+            for (java.lang.reflect.Method x : api.getDeclaredMethods()) {
+                if ("a".equals(x.getName()) && x.getParameterTypes().length == 2
+                        && x.getParameterTypes()[0] == String.class && x.getParameterTypes()[1] == String.class) {
+                    m = x; break;
+                }
+            }
+            if (m == null) { XLog.i("ServerApi.a(String,String) 未找到"); return; }
+            m.setAccessible(true);
+            XLog.i("ServerApi.a hook " + HookUtil.hook(m, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam p) {
+                    if (!Const.DEBUG_NET) return;
+                    XLog.i("SIGN ts=[" + p.args[0] + "] body=[" + p.args[1] + "]");
+                }
+            }));
+        } catch (Throwable t) {
+            XLog.e("hookSigner 失败", t);
+        }
+    }
+
     public static void install(ClassLoader cl) {
+        hookSigner(cl);
         Class<?> chain = XposedHelpers.findClassIfExists(CLS_CHAIN, cl);
         Class<?> reqCls = XposedHelpers.findClassIfExists(CLS_REQ, cl);
         Class<?> bodyCls = XposedHelpers.findClassIfExists(CLS_BODY, cl);
